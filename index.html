@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Supabase Style</title>
+    <link rel="stylesheet" href="css/index.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>SupabaseAuth</h1>
+            <p>Secure authentication powered by Supabase</p>
+        </div>
+
+        <div class="welcome-text">
+            <h2>Welcome back</h2>
+            <p>Sign in to your account to continue</p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+
+        <!-- Google Identity Services -->
+        <div id="g_id_onload"
+             data-client_id="935756544201-5q3i79vmjmgug22rtj7p7bgt8hh17uhn.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+
+        <div class="g_id_signin" data-type="standard"></div>
+
+        <div class="divider">
+            <span>or</span>
+        </div>
+
+        <div class="terms">
+            By continuing, you agree to our 
+            <a href="#" onclick="showTerms()">Terms of Service</a> and 
+            <a href="#" onclick="showPrivacy()">Privacy Policy</a>
+        </div>
+    </div>
+
+    <script>
+        function handleCredentialResponse(response) {
+            
+            // Show loading state
+            showLoading(true);
+            showMessage('', 'error');
+            showMessage('', 'success');
+            
+            fetch('http://localhost:3000/api/auth/google', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token: response.credential })
+            })
+            .then(res => res.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    // Store user data
+                    localStorage.setItem('data', JSON.stringify(data));
+                    showMessage(`Welcome back, ${data.user.username}!`, 'success');
+                    
+                    // Redirect to chat page
+                    setTimeout(() => {
+                        window.location.href = '/pages/chat.html';
+                    }, 1500);
+                } else {
+                    showMessage(data.message || 'Authentication failed', 'error');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Error:', error);
+                showMessage('Network error: Unable to connect to server', 'error');
+            });
+        }
+
+        function showLoading(show) {
+            const loadingEl = document.querySelector('.g_id_signin');
+            if (loadingEl) {
+                loadingEl.style.opacity = show ? '0.5' : '1';
+                loadingEl.style.pointerEvents = show ? 'none' : 'auto';
+            }
+        }
+
+        function showMessage(message, type) {
+            console.log(message);
+            
+            const errorEl = document.getElementById('errorMessage');
+            const successEl = document.getElementById('successMessage');
+            
+            if (type === 'error') {
+                errorEl.textContent = message;
+                errorEl.style.display = message ? 'block' : 'none';
+                successEl.style.display = 'none';
+            } else if (type === 'success') {
+                successEl.textContent = message;
+                successEl.style.display = message ? 'block' : 'none';
+                errorEl.style.display = 'none';
+            }
+        }
+
+        function showTerms() {
+            alert('Terms of Service: This is a demo application. In a real implementation, this would link to your actual terms of service.');
+        }
+
+        function showPrivacy() {
+            alert('Privacy Policy: This is a demo application. In a real implementation, this would link to your actual privacy policy.');
+        }
+
+        // Check if user is already logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = localStorage.getItem('data');
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    showMessage(`Welcome back, ${userData.user.name}!`, 'success');
+                    setTimeout(() => {
+                        window.location.href = '/pages/chat.html';
+                    }, 1000);
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                    localStorage.removeItem('data');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
