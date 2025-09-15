@@ -246,7 +246,9 @@ class ChatArea {
             messageData.id,
             messageData.content,
             messageData.role,
-            messageData.createdAt
+            messageData.createdAt,
+            messageData.dbData,
+            messageData.mongoId // Use MongoDB document ID for API calls
         );
         
         const messageElement = message.createElement();
@@ -288,7 +290,9 @@ class ChatArea {
             messageData.id,
             messageData.content,
             messageData.role,
-            messageData.createdAt
+            messageData.createdAt,
+            messageData.dbData,
+            messageData.mongoId // Use MongoDB document ID for API calls
         );
         
         const messageElement = message.createElement();

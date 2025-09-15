@@ -146,6 +146,18 @@ class ApiService {
     }
 
     /**
+     * Get database data for a specific message
+     * @param {string} mongoId - The MongoDB document ID
+     * @returns {Promise<Object>} Response with database data
+     */
+    async getDbData(mongoId) {
+        const endpoint = `/api/chat/dbdata?chatId=${mongoId}`;
+        return await this.makeRequest(endpoint, {
+            method: 'GET'
+        });
+    }
+
+    /**
      * Handle authentication errors
      */
     handleAuthError() {

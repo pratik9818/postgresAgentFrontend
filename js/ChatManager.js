@@ -274,10 +274,11 @@ class ChatManager {
     /**
      * Add a message to a chat
      */
-    addMessage(chatId, content, role = 'user') {
+    addMessage(chatId, content, role = 'user', dbData = null) {
         const chat = this.chats.get(chatId);
         if (chat) {
-            const message = new Message(null, content, role);
+            // For new messages, we don't have a MongoDB ID yet, so pass null
+            const message = new Message(null, content, role, null, dbData, null);
             chat.messages.push(message);
             chat.updatedAt = new Date().toISOString();
             
@@ -472,7 +473,7 @@ class ChatManager {
                     const errorInfo = data.result.response;
                     
                     // Add the raw data as the main AI response
-                    const aiMessage = this.addMessage(chatId, rawData, 'assistant');
+                    const aiMessage = this.addMessage(chatId, rawData, 'assistant', data.result.dbData);
                     
                     // Trigger event for UI update with error info
                     window.dispatchEvent(new CustomEvent('aiResponseReceived', {
@@ -495,7 +496,7 @@ class ChatManager {
 
                     if (aiResponse) {
                         // Add AI response to chat
-                        const aiMessage = this.addMessage(chatId, aiResponse, 'assistant');
+                        const aiMessage = this.addMessage(chatId, aiResponse, 'assistant', data.result.dbData);
                         
                         // Trigger event for UI update
                         window.dispatchEvent(new CustomEvent('aiResponseReceived', {
@@ -815,7 +816,9 @@ class ChatManager {
                         role: msg.role,
                         createdAt: msg.createdAt,
                         conversationId: msg.conversationId,
-                        userId: msg.userId
+                        userId: msg.userId,
+                        dbData: msg.dbData, // Include dbData from server
+                        mongoId: msg._id // Store MongoDB document ID for API calls
                     };
                 });
                 
