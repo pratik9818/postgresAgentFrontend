@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Credentials - Your Database Agent</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/db-credentials.css">
+    <script src="../js/constants.js"></script>
+    <script src="../js/DbCredentialsService.js"></script>
+</head>
+<body>
+    <div class="db-credentials-container">
+
+        <div class="welcome-text">
+            <h2 id="pageTitle">Setup Database Connection</h2>
+            <p id="pageDescription">Configure your database connection settings</p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+
+        <form id="dbCredentialsForm" class="credentials-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="user">Username</label>
+                    <input type="text" id="user" name="user" required placeholder="Enter database username">
+                </div>
+
+                <div class="form-group">
+                    <label for="host">Host</label>
+                    <input type="text" id="host" name="host" required placeholder="Enter database host">
+                </div>
+
+                <div class="form-group">
+                    <label for="database">Database Name</label>
+                    <input type="text" id="database" name="database" required placeholder="Enter database name">
+                </div>
+
+                <div class="form-group">
+                    <label for="port">Port</label>
+                    <input type="number" id="port" name="port" required placeholder="Enter database port" min="1" max="65535">
+                </div>
+
+                <div class="form-group password-group full-width">
+                    <label for="password">Password</label>
+                    <div class="password-input-container">
+                        <input type="password" id="password" name="password" required placeholder="Enter database password">
+                        <button type="button" class="password-toggle" id="passwordToggle">
+                            <span class="eye-icon">👁️</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="save-btn" id="saveBtn">
+                    <span class="btn-text">Save Credentials</span>
+                    <span class="btn-loading" style="display: none;">Saving...</span>
+                </button>
+            </div>
+        </form>
+
+        <div class="back-to-chat" id="backToChat" style="display: none;">
+            <a href="../pages/chat.html" class="back-link">← Back to Chat</a>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -6,6 +6,7 @@
     <title>Login - Supabase Style</title>
     <link rel="stylesheet" href="css/index.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="js/constants.js"></script>
 </head>
 <body>
     <div class="login-container">
@@ -49,7 +50,7 @@
             showMessage('', 'error');
             showMessage('', 'success');
             
-            fetch('http://localhost:3000/api/auth/google', {
+            fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH_GOOGLE}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -61,13 +62,21 @@
                 showLoading(false);
                 if (data.success) {
                     // Store user data
-                    localStorage.setItem('data', JSON.stringify(data));
+                    localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(data));
                     showMessage(`Welcome back, ${data.user.username}!`, 'success');
                     
-                    // Redirect to chat page
-                    setTimeout(() => {
-                        window.location.href = '/pages/chat.html';
-                    }, 1500);
+                    // Check if user needs to setup database credentials
+                    if (data.user.dbPassword === null) {
+                        // Redirect to database credentials page
+                        setTimeout(() => {
+                            window.location.href = '/pages/db.html';
+                        }, API_CONFIG.DEFAULTS.REDIRECT_DELAY);
+                    } else {
+                        // Redirect to chat page
+                        setTimeout(() => {
+                            window.location.href = '/pages/chat.html';
+                        }, API_CONFIG.DEFAULTS.REDIRECT_DELAY);
+                    }
                 } else {
                     showMessage(data.message || 'Authentication failed', 'error');
                 }
@@ -114,17 +123,25 @@
 
         // Check if user is already logged in
         document.addEventListener('DOMContentLoaded', function() {
-            const user = localStorage.getItem('data');
+            const user = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
             if (user) {
                 try {
                     const userData = JSON.parse(user);
                     showMessage(`Welcome back, ${userData.user.name}!`, 'success');
-                    setTimeout(() => {
-                        window.location.href = '/pages/chat.html';
-                    }, 1000);
+                    
+                    // Check if user needs to setup database credentials
+                    if (userData.user.dbPassword === null) {
+                        setTimeout(() => {
+                            window.location.href = '/pages/db.html';
+                        }, 1000);
+                    } else {
+                        setTimeout(() => {
+                            window.location.href = '/pages/chat.html';
+                        }, 1000);
+                    }
                 } catch (error) {
                     console.error('Error parsing user data:', error);
-                    localStorage.removeItem('data');
+                    localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
                 }
             }
         });
