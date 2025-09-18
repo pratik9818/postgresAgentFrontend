@@ -454,12 +454,56 @@ class ChatManager {
 
             onProgress: (data) => {
                 console.log('Job progress:', jobId, data.progress);
-                // You can show progress updates to user if needed
-                // For example, update a progress bar or show "AI is thinking..."
+                
+                // Generate status message based on progress if not provided
+                let status = data.status;
+                if (!status) {
+                    const progress = data.progress || 0;
+                    if (progress < 20) {
+                        status = 'Connecting to database...';
+                    } else if (progress < 40) {
+                        status = 'Querying your data...';
+                    } else if (progress < 60) {
+                        status = 'Processing results...';
+                    } else if (progress < 80) {
+                        status = 'Generating response...';
+                    } else if (progress < 95) {
+                        status = 'Finalizing answer...';
+                    } else {
+                        status = 'Almost done...';
+                    }
+                }
+                
+                // Emit progress update event for UI
+                window.dispatchEvent(new CustomEvent('aiProgressUpdate', {
+                    detail: { 
+                        chatId: chatId, 
+                        progress: data.progress || 0,
+                        status: status,
+                        jobId: jobId
+                    }
+                }));
             },
 
             onComplete: (data) => {
                 console.log('Job completed:', jobId, data.result);
+                
+                // Add detailed logging for debugging
+                if (data.result) {
+                    console.log('Result structure:', {
+                        hasToolcalls: !!data.result.toolcalls,
+                        hasToolCalls: !!data.result.toolCalls,
+                        hasTool_calls: !!data.result.tool_calls,
+                        resultKeys: Object.keys(data.result)
+                    });
+                }
+                
+                // Check for toolcalls in the response with safe access
+                const toolCalls = data.result?.toolcalls || data.result?.toolCalls || data.result?.tool_calls;
+                
+                if (toolCalls) {
+                    console.log('Toolcalls found:', toolCalls);
+                }
                 
                 // Check if this is an error case (response contains error message)
                 const isErrorCase = data.result.response && 
@@ -467,23 +511,25 @@ class ChatManager {
                                    data.result.response.toLowerCase().includes('token limit') ||
                                    data.result.response.toLowerCase().includes('limit reached'));
 
-                if (isErrorCase && data.result.data) {
-                    // Error case: Show raw data as main message, response as error info
-                    const rawData = data.result.data;
-                    const errorInfo = data.result.response;
+                if (isErrorCase) {
+                    // Error case: Show error message as main response, but preserve dbData for "See Data" button
+                    const errorMessage = data.result.response;
                     
-                    // Add the raw data as the main AI response
-                    const aiMessage = this.addMessage(chatId, rawData, 'assistant', data.result.dbData);
+                    // Check for dbData in multiple possible locations
+                    const dbData = data.result.dbData || data.result.data || data.result.rawData;
                     
-                    // Trigger event for UI update with error info
+                    // Add the error message as the main AI response, but preserve dbData for the button
+                    const aiMessage = this.addMessage(chatId, errorMessage, 'assistant', dbData);
+                    
+                    // Trigger event for UI update (no need for separate error info)
                     window.dispatchEvent(new CustomEvent('aiResponseReceived', {
                         detail: { 
                             chatId: chatId, 
                             userMessage: userMessage,
                             aiMessage: aiMessage,
-                            response: rawData,
-                            errorInfo: errorInfo,
-                            isErrorCase: true
+                            response: errorMessage,
+                            toolCalls: toolCalls, // Include toolcalls in event
+                            isErrorCase: false // Treat as normal response since we're showing the error as main content
                         }
                     }));
                 } else {
@@ -505,6 +551,7 @@ class ChatManager {
                                 userMessage: userMessage,
                                 aiMessage: aiMessage,
                                 response: aiResponse,
+                                toolCalls: toolCalls, // Include toolcalls in event
                                 isErrorCase: false
                             }
                         }));

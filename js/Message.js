@@ -18,6 +18,87 @@ class Message {
     }
 
     /**
+     * Format content for proper display with HTML formatting
+     */
+    formatContent(content) {
+        if (!content) return '';
+        
+        // First, escape HTML to prevent XSS
+        let formatted = this.escapeHtml(content);
+        
+        // Convert markdown-style formatting to HTML
+        // Handle headers (###, ##, #)
+        formatted = formatted.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+        formatted = formatted.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+        formatted = formatted.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+        
+        // Handle bold text (**text** or __text__) - process this first
+        formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        formatted = formatted.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+        
+        // Handle italic text (*text* or _text_) - but avoid conflicts with bold
+        // Use a more compatible approach
+        formatted = formatted.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+        formatted = formatted.replace(/_([^_\n]+)_/g, '<em>$1</em>');
+        
+        // Handle inline code (`code`)
+        formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+        
+        // Handle code blocks (```code```)
+        formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        
+        // Convert line breaks to <br> tags
+        formatted = formatted.replace(/\n/g, '<br>');
+        
+        // Convert double line breaks to paragraph breaks
+        formatted = formatted.replace(/(<br>\s*){2,}/g, '</p><p>');
+        formatted = '<p>' + formatted + '</p>';
+        
+        // Convert bullet points (•, -, *, etc.) to proper list items
+        // This regex looks for bullet points at the start of lines or after <br> tags
+        formatted = formatted.replace(/(<br>|^)\s*[•\-\*]\s+([^<]+?)(?=<br>|$|<\/p>)/g, '$1<li>$2</li>');
+        
+        // Convert numbered lists (1., 2., etc.)
+        formatted = formatted.replace(/(<br>|^)\s*(\d+)\.\s+([^<]+?)(?=<br>|$|<\/p>)/g, '$1<li>$3</li>');
+        
+        // Wrap consecutive list items in <ul> tags
+        // This is more complex - we need to find sequences of <li> tags and wrap them
+        formatted = formatted.replace(/(<li>.*?<\/li>)(\s*<li>.*?<\/li>)+/g, (match) => {
+            return '<ul>' + match + '</ul>';
+        });
+        
+        // Also handle single list items
+        formatted = formatted.replace(/(<br>)?<li>.*?<\/li>(<br>)?/g, (match) => {
+            return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
+        });
+        
+        // Clean up empty paragraphs and fix paragraph structure
+        formatted = formatted.replace(/<p>\s*<\/p>/g, '');
+        formatted = formatted.replace(/<p><br><\/p>/g, '');
+        formatted = formatted.replace(/<p>\s*<ul>/g, '<ul>');
+        formatted = formatted.replace(/<\/ul>\s*<\/p>/g, '</ul>');
+        formatted = formatted.replace(/<p>\s*<h[1-6]>/g, '<h1>');
+        formatted = formatted.replace(/<h[1-6]>\s*<\/p>/g, '</h1>');
+        
+        // Fix any remaining <br> tags that are now redundant
+        formatted = formatted.replace(/<br>\s*<ul>/g, '<ul>');
+        formatted = formatted.replace(/<\/ul>\s*<br>/g, '</ul>');
+        formatted = formatted.replace(/<br>\s*<h[1-6]>/g, '<h1>');
+        formatted = formatted.replace(/<\/h[1-6]>\s*<br>/g, '</h1>');
+        
+        return formatted;
+    }
+
+    /**
+     * Escape HTML to prevent XSS attacks
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
      * Start editing this message
      */
     startEditing() {
@@ -50,16 +131,12 @@ class Message {
         messageDiv.className = `message ${this.role}`;
         messageDiv.dataset.messageId = this.id;
 
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = this.role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-
         const content = document.createElement('div');
         content.className = 'message-content';
 
         const text = document.createElement('div');
         text.className = 'message-text';
-        text.textContent = this.content;
+        text.innerHTML = this.formatContent(this.content);
 
         const actions = document.createElement('div');
         actions.className = 'message-actions';
@@ -68,31 +145,15 @@ class Message {
         if (this.role === 'assistant' && (this.dbData || this.mongoId)) {
             const rawDataBtn = document.createElement('button');
             rawDataBtn.className = 'message-action raw-data-btn';
-            rawDataBtn.innerHTML = '<i class="fas fa-table"></i>';
+            rawDataBtn.innerHTML = 'show data';
             rawDataBtn.title = 'Show Raw Data';
             rawDataBtn.onclick = () => this.showRawData();
             actions.appendChild(rawDataBtn);
         }
-        
-        const editBtn = document.createElement('button');
-        editBtn.className = 'message-action';
-        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
-        editBtn.title = 'Edit message';
-        editBtn.onclick = () => this.startEditingInUI();
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'message-action';
-        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-        deleteBtn.title = 'Delete message';
-        deleteBtn.onclick = () => this.deleteFromUI();
-
-        actions.appendChild(editBtn);
-        actions.appendChild(deleteBtn);
 
         content.appendChild(text);
         content.appendChild(actions);
 
-        messageDiv.appendChild(avatar);
         messageDiv.appendChild(content);
 
         return messageDiv;
@@ -211,7 +272,7 @@ class Message {
         if (messageElement) {
             const textElement = messageElement.querySelector('.message-text');
             if (textElement && !this.isEditing) {
-                textElement.textContent = this.content;
+                textElement.innerHTML = this.formatContent(this.content);
             }
         }
     }
@@ -232,7 +293,7 @@ class Message {
                 const apiService = new ApiService();
                 const response = await apiService.getDbData(this.mongoId);
                 if (response.success && response.data) {
-                    dataToShow = response.data;
+                    dataToShow = response.data?.data?.dbData;
                 } else {
                     throw new Error('Failed to fetch data from server');
                 }
@@ -250,7 +311,7 @@ class Message {
     }
 
     /**
-     * Display raw data in a modal with table format
+     * Display raw data in a modal with table format and pagination
      */
     displayRawDataModal(data) {
         // Parse the JSON data
@@ -272,6 +333,12 @@ class Message {
             alert('No data to display');
             return;
         }
+
+        // Pagination settings
+        const ROWS_PER_PAGE = 50;
+        const totalRecords = parsedData.length;
+        const totalPages = Math.ceil(totalRecords / ROWS_PER_PAGE);
+        let currentPage = 1;
 
         // Create modal
         const modal = document.createElement('div');
@@ -313,11 +380,126 @@ class Message {
             align-items: center;
             justify-content: space-between;
         `;
-        header.innerHTML = `
-            <h3 style="color: #ffffff; font-size: 1.1rem; margin: 0;">Raw Data (${parsedData.length} record${parsedData.length !== 1 ? 's' : ''})</h3>
-            <button class="modal-close" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 0.25rem; border-radius: 4px; transition: all 0.2s ease;">
-                <i class="fas fa-times"></i>
-            </button>
+
+        // Create header title element that we can update
+        const headerTitle = document.createElement('h3');
+        headerTitle.style.cssText = `
+            color: #ffffff;
+            font-size: 1.1rem;
+            margin: 0;
+        `;
+
+        // Create CSV download button
+        const csvDownloadBtn = document.createElement('button');
+        csvDownloadBtn.className = 'csv-download-btn';
+        csvDownloadBtn.innerHTML = '<i class="fas fa-download"></i> CSV';
+        csvDownloadBtn.title = 'Download all data as CSV';
+        csvDownloadBtn.style.cssText = `
+            background: #10a37f;
+            color: #ffffff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            margin-right: 1rem;
+        `;
+        csvDownloadBtn.onmouseover = () => {
+            csvDownloadBtn.style.backgroundColor = '#0d8a6b';
+        };
+        csvDownloadBtn.onmouseout = () => {
+            csvDownloadBtn.style.backgroundColor = '#10a37f';
+        };
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'modal-close';
+        closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        closeBtn.style.cssText = `
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        `;
+
+        // Create right side container for CSV button and close button
+        const rightSideContainer = document.createElement('div');
+        rightSideContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        `;
+
+        rightSideContainer.appendChild(csvDownloadBtn);
+        rightSideContainer.appendChild(closeBtn);
+
+        // CSV download functionality
+        const downloadCSV = () => {
+            try {
+                // Get all unique keys from all records
+                const allKeys = [...new Set(parsedData.flatMap(record => Object.keys(record)))];
+                
+                // Create CSV header row
+                const csvHeader = allKeys.join(',');
+                
+                // Create CSV data rows
+                const csvRows = parsedData.map(record => {
+                    return allKeys.map(key => {
+                        const value = record[key];
+                        // Escape values that contain commas, quotes, or newlines
+                        if (value === null || value === undefined) {
+                            return '';
+                        }
+                        const stringValue = String(value);
+                        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                            return '"' + stringValue.replace(/"/g, '""') + '"';
+                        }
+                        return stringValue;
+                    }).join(',');
+                });
+                
+                // Combine header and data
+                const csvContent = [csvHeader, ...csvRows].join('\n');
+                
+                // Create and trigger download
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `raw_data_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+            } catch (error) {
+                console.error('Error generating CSV:', error);
+                alert('Error generating CSV file: ' + error.message);
+            }
+        };
+
+        // Add click event to CSV download button
+        csvDownloadBtn.onclick = downloadCSV;
+
+        header.appendChild(headerTitle);
+        header.appendChild(rightSideContainer);
+
+        // Create pagination controls
+        const paginationControls = document.createElement('div');
+        paginationControls.className = 'pagination-controls';
+        paginationControls.style.cssText = `
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #4d4d4d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #1f1f1f;
         `;
 
         // Create table container
@@ -342,6 +524,13 @@ class Message {
         
         // Create table header
         const thead = document.createElement('thead');
+        thead.style.cssText = `
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #171717;
+        `;
+        
         const headerRow = document.createElement('tr');
         headerRow.style.cssText = `
             background-color: #171717;
@@ -356,6 +545,11 @@ class Message {
                 text-align: left;
                 font-weight: 600;
                 border-right: 1px solid #4d4d4d;
+                background-color: #171717;
+                color: #ffffff;
+                position: sticky;
+                top: 0;
+                z-index: 10;
             `;
             headerRow.appendChild(th);
         });
@@ -364,36 +558,112 @@ class Message {
 
         // Create table body
         const tbody = document.createElement('tbody');
-        parsedData.forEach((record, index) => {
-            const row = document.createElement('tr');
-            row.style.cssText = `
-                border-bottom: 1px solid #3d3d3d;
-                background-color: ${index % 2 === 0 ? '#2d2d2d' : '#252525'};
-            `;
-            
-            allKeys.forEach(key => {
-                const td = document.createElement('td');
-                const value = record[key];
-                td.textContent = value !== null && value !== undefined ? String(value) : '';
-                td.style.cssText = `
-                    padding: 0.75rem;
-                    border-right: 1px solid #3d3d3d;
-                    word-break: break-word;
-                    max-width: 200px;
-                `;
-                row.appendChild(td);
-            });
-            tbody.appendChild(row);
-        });
         table.appendChild(tbody);
 
+        // Function to update pagination display
+        const updatePaginationDisplay = () => {
+            const startRecord = (currentPage - 1) * ROWS_PER_PAGE + 1;
+            const endRecord = Math.min(currentPage * ROWS_PER_PAGE, totalRecords);
+            
+            headerTitle.textContent = `Raw Data (${totalRecords} record${totalRecords !== 1 ? 's' : ''}) - Page ${currentPage} of ${totalPages}`;
+            
+            // Update pagination controls
+            paginationControls.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #ffffff;">
+                    <span>Showing ${startRecord}-${endRecord} of ${totalRecords} records</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="pagination-btn" id="prevPage" ${currentPage === 1 ? 'disabled' : ''} style="
+                        background: ${currentPage === 1 ? '#4d4d4d' : '#10a37f'};
+                        color: ${currentPage === 1 ? '#666' : '#ffffff'};
+                        border: none;
+                        padding: 0.4rem 0.6rem;
+                        border-radius: 4px;
+                        cursor: ${currentPage === 1 ? 'not-allowed' : 'pointer'};
+                        font-size: 0.8rem;
+                    ">Previous</button>
+                    <span style="color: #ffffff; padding: 0 0.5rem;">Page ${currentPage} of ${totalPages}</span>
+                    <button class="pagination-btn" id="nextPage" ${currentPage === totalPages ? 'disabled' : ''} style="
+                        background: ${currentPage === totalPages ? '#4d4d4d' : '#10a37f'};
+                        color: ${currentPage === totalPages ? '#666' : '#ffffff'};
+                        border: none;
+                        padding: 0.4rem 0.6rem;
+                        border-radius: 4px;
+                        cursor: ${currentPage === totalPages ? 'not-allowed' : 'pointer'};
+                        font-size: 0.8rem;
+                    ">Next</button>
+                </div>
+            `;
+            
+            // Setup event listeners after HTML is rendered
+            const prevBtn = paginationControls.querySelector('#prevPage');
+            const nextBtn = paginationControls.querySelector('#nextPage');
+
+            if (prevBtn) {
+                prevBtn.onclick = () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderCurrentPage();
+                    }
+                };
+            }
+
+            if (nextBtn) {
+                nextBtn.onclick = () => {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderCurrentPage();
+                    }
+                };
+            }
+        };
+
+        // Function to render current page data
+        const renderCurrentPage = () => {
+            // Clear existing rows
+            tbody.innerHTML = '';
+            
+            const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+            const endIndex = Math.min(startIndex + ROWS_PER_PAGE, totalRecords);
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const record = parsedData[i];
+                const row = document.createElement('tr');
+                row.style.cssText = `
+                    border-bottom: 1px solid #3d3d3d;
+                    background-color: ${i % 2 === 0 ? '#2d2d2d' : '#252525'};
+                `;
+                
+                allKeys.forEach(key => {
+                    const td = document.createElement('td');
+                    const value = record[key];
+                    td.textContent = value !== null && value !== undefined ? String(value) : '';
+                    td.style.cssText = `
+                        padding: 0.75rem;
+                        border-right: 1px solid #3d3d3d;
+                        word-break: break-word;
+                        max-width: 200px;
+                    `;
+                    row.appendChild(td);
+                });
+                tbody.appendChild(row);
+            }
+            
+            updatePaginationDisplay();
+        };
+
+
+        // Assemble modal
         tableContainer.appendChild(table);
         modalContent.appendChild(header);
+        modalContent.appendChild(paginationControls);
         modalContent.appendChild(tableContainer);
         modal.appendChild(modalContent);
 
+        // Render initial page
+        renderCurrentPage();
+
         // Add close functionality
-        const closeBtn = header.querySelector('.modal-close');
         closeBtn.onclick = () => modal.remove();
         modal.onclick = (e) => {
             if (e.target === modal) {

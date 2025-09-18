@@ -8,6 +8,9 @@ class ChatArea {
         this.chatInput = document.getElementById('chatInput');
         this.sendBtn = document.getElementById('sendBtn');
         this.chatTitle = document.getElementById('chatTitle');
+        this.isShowingProgress = false;
+        this.toolCallMessages = []; // Store assistant-tool-call messages
+        this.currentToolCalls = null; // Store current SSE toolcalls
         
         this.init();
     }
@@ -64,22 +67,45 @@ class ChatArea {
             if (e.detail.chatId === this.chatManager.currentChatId) {
                 console.log('AI response received:', e.detail.response);
                 
-                // Hide typing indicator
-                this.hideTypingIndicator();
-                
-                // If this is an error case, show error info as small text
-                if (e.detail.isErrorCase && e.detail.errorInfo) {
-                    this.showErrorInfo(e.detail.errorInfo);
+                try {
+                    // Handle toolcalls if present
+                    if (e.detail.toolCalls) {
+                        console.log('Processing toolcalls from event:', e.detail.toolCalls);
+                        this.setCurrentToolCalls(e.detail.toolCalls);
+                    } else {
+                        this.clearCurrentToolCalls();
+                    }
+                } catch (error) {
+                    console.error('Error handling toolcalls in aiResponseReceived:', error);
+                    this.clearCurrentToolCalls();
                 }
+                
+                // Hide progress indicator
+                this.hideProgressIndicator();
             }
         });
 
         window.addEventListener('aiResponseError', (e) => {
             if (e.detail.chatId === this.chatManager.currentChatId) {
                 console.error('AI response error:', e.detail.error);
-                // Hide typing indicator and show error
-                this.hideTypingIndicator();
+                // Hide progress indicator and show error
+                this.hideProgressIndicator();
                 this.showErrorMessage(e.detail.error || 'Failed to get AI response');
+            }
+        });
+
+        // Listen for progress updates
+        window.addEventListener('aiProgressUpdate', (e) => {
+            if (e.detail.chatId === this.chatManager.currentChatId) {
+                console.log('AI progress update:', e.detail.progress, e.detail.status);
+                
+                // Stop simulation since we're getting real progress updates
+                this.stopProgressSimulation();
+                
+                // Update status text if provided (regardless of progress value)
+                if (e.detail.status) {
+                    this.updateProgressIndicator(null, e.detail.status);
+                }
             }
         });
 
@@ -127,28 +153,37 @@ class ChatArea {
             this.chatInput.value = '';
             this.autoResizeTextarea();
 
-            // Show typing indicator
-            this.showTypingIndicator();
-
             // Send message to AI backend (now returns job ID for SSE tracking)
             const result = await this.chatManager.sendMessageToAI(
                 this.chatManager.currentChatId, 
                 content
             );
 
+            // Show progress indicator after user message is added
             if (result.success) {
                 console.log('Message queued for processing, job ID:', result.jobId);
-                // Keep typing indicator showing until SSE receives response
-                // The typing indicator will be hidden by the aiResponseReceived/aiResponseError events
+                
+                // Small delay to ensure user message is rendered first
+                setTimeout(() => {
+                    this.showProgressIndicator();
+                    
+                    // Start fallback progress simulation after a short delay (in case backend doesn't send progress updates)
+                    setTimeout(() => {
+                        this.startProgressSimulation();
+                    }, 1000); // Wait 1 second before starting simulation
+                }, 100); // Small delay to ensure user message appears first
+                
+                // Keep progress indicator showing until SSE receives response
+                // The progress indicator will be hidden by the aiResponseReceived/aiResponseError events
             } else {
-                // Hide typing indicator on immediate error
-                this.hideTypingIndicator();
+                // Hide progress indicator on immediate error
+                this.hideProgressIndicator();
                 console.error('Failed to queue message:', result.error);
                 this.showErrorMessage(result.error || 'Failed to send message. Please try again.');
             }
         } catch (error) {
             console.error('Error sending message:', error);
-            this.hideTypingIndicator();
+            this.hideProgressIndicator();
             this.showErrorMessage('Failed to send message. Please try again.');
         } finally {
             // Re-enable input
@@ -241,6 +276,13 @@ class ChatArea {
      * Add message to UI from server data (different format)
      */
     addMessageToUIFromServer(messageData) {
+        // Skip assistant-tool-call messages from display
+        if (messageData.role == 'assistant-tool-call') {
+            // Store the tool call message for potential plan display
+            this.storeToolCallMessage(messageData);
+            return;
+        }
+        
         // Create a Message object from server data
         const message = new Message(
             messageData.id,
@@ -285,6 +327,13 @@ class ChatArea {
      * Prepend message to UI (for loading older messages)
      */
     prependMessageToUI(messageData) {
+        // Skip assistant-tool-call messages from display
+        if (messageData.role == 'assistant-tool-call') {
+            // Store the tool call message for potential plan display
+            this.storeToolCallMessage(messageData);
+            return;
+        }
+        
         // Create a Message object from server data
         const message = new Message(
             messageData.id,
@@ -344,39 +393,400 @@ class ChatArea {
 
     clearMessages() {
         this.chatMessages.innerHTML = '';
+        this.isShowingProgress = false;
+        this.toolCallMessages = []; // Clear stored tool call messages
+        this.currentToolCalls = null; // Clear current tool calls
     }
 
-    showTypingIndicator() {
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'message assistant typing-indicator';
-        typingDiv.id = 'typingIndicator';
+    /**
+     * Store tool call message for potential plan display
+     */
+    storeToolCallMessage(messageData) {
+        this.toolCallMessages.push(messageData);
+        this.updateShowPlanButton();
+    }
+
+    /**
+     * Update or create the "Show Plan" button
+     */
+    updateShowPlanButton() {
+        console.log('updateShowPlanButton called:', {
+            toolCallMessagesLength: this.toolCallMessages.length,
+            currentToolCalls: this.currentToolCalls
+        });
         
-        typingDiv.innerHTML = `
+        // Remove existing show plan button
+        const existingButton = document.getElementById('showPlanButton');
+        if (existingButton) {
+            existingButton.remove();
+        }
+
+        // Only show button if we have tool call messages or current tool calls
+        if (this.toolCallMessages.length > 0 || this.currentToolCalls) {
+            console.log('Creating show plan button');
+            this.createShowPlanButton();
+        } else {
+            console.log('No tool calls found, not showing button');
+        }
+    }
+
+    /**
+     * Create the "Show Plan" button
+     */
+    createShowPlanButton() {
+        const showPlanBtn = document.createElement('button');
+        showPlanBtn.id = 'showPlanButton';
+        showPlanBtn.className = 'show-plan-btn';
+        showPlanBtn.innerHTML = '<i class="fas fa-list-alt"></i> Show Plan';
+        showPlanBtn.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background: #10a37f;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        `;
+        
+        showPlanBtn.onmouseover = () => {
+            showPlanBtn.style.backgroundColor = '#0d8a6b';
+        };
+        showPlanBtn.onmouseout = () => {
+            showPlanBtn.style.backgroundColor = '#10a37f';
+        };
+        
+        showPlanBtn.onclick = () => this.showPlanModal();
+        
+        // Insert button in the main content area (relative to chatMessages parent)
+        const mainContent = this.chatMessages.parentNode; // This should be .main-content
+        if (mainContent) {
+            mainContent.style.position = 'relative'; // Ensure parent has relative positioning
+            mainContent.appendChild(showPlanBtn);
+            console.log('Show plan button added to main content');
+        } else {
+            console.error('Could not find main content container for show plan button');
+        }
+    }
+
+    /**
+     * Show plan modal with tool call information
+     */
+    showPlanModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay plan-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            padding: 2rem;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.className = 'plan-modal-content';
+        modalContent.style.cssText = `
+            background-color: #2d2d2d;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            border: 1px solid #4d4d4d;
+            display: flex;
+            flex-direction: column;
+        `;
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #4d4d4d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = 'AI Tool Plan';
+        title.style.cssText = `
+            color: #ffffff;
+            font-size: 1.1rem;
+            margin: 0;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        closeBtn.style.cssText = `
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        `;
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // Content
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1;
+            overflow: auto;
+            padding: 1.5rem;
+        `;
+
+        // Show current tool calls if available
+        if (this.currentToolCalls) {
+            const currentSection = document.createElement('div');
+            currentSection.style.cssText = `
+                margin-bottom: 2rem;
+                padding: 1rem;
+                background-color: #1f1f1f;
+                border-radius: 8px;
+                border-left: 4px solid #10a37f;
+            `;
+
+            const currentTitle = document.createElement('h4');
+            currentTitle.textContent = 'Current Tool Calls';
+            currentTitle.style.cssText = `
+                color: #10a37f;
+                margin: 0 0 1rem 0;
+                font-size: 1rem;
+            `;
+
+            const currentContent = document.createElement('div');
+            currentContent.style.cssText = `
+                color: #ffffff;
+                white-space: pre-wrap;
+                font-family: 'Courier New', monospace;
+                font-size: 0.9rem;
+                line-height: 1.4;
+            `;
+            try {
+                currentContent.textContent = typeof this.currentToolCalls === 'string' 
+                    ? this.currentToolCalls 
+                    : JSON.stringify(this.currentToolCalls, null, 2);
+            } catch (error) {
+                console.error('Error formatting current tool calls:', error);
+                currentContent.textContent = 'Error displaying tool calls data';
+            }
+
+            currentSection.appendChild(currentTitle);
+            currentSection.appendChild(currentContent);
+            content.appendChild(currentSection);
+        }
+
+        // Show historical tool call messages
+        if (this.toolCallMessages.length > 0) {
+            const historicalSection = document.createElement('div');
+            historicalSection.style.cssText = `
+                margin-bottom: 1rem;
+            `;
+
+            const historicalTitle = document.createElement('h4');
+            historicalTitle.textContent = 'Historical Tool Plans';
+            historicalTitle.style.cssText = `
+                color: #ffffff;
+                margin: 0 0 1rem 0;
+                font-size: 1rem;
+            `;
+
+            historicalSection.appendChild(historicalTitle);
+
+            this.toolCallMessages.forEach((messageData, index) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.style.cssText = `
+                    margin-bottom: 1rem;
+                    padding: 1rem;
+                    background-color: #1f1f1f;
+                    border-radius: 8px;
+                    border-left: 4px solid #6b7280;
+                `;
+
+                const messageTitle = document.createElement('h5');
+                messageTitle.textContent = `Plan ${index + 1}`;
+                messageTitle.style.cssText = `
+                    color: #6b7280;
+                    margin: 0 0 0.5rem 0;
+                    font-size: 0.9rem;
+                `;
+
+                const messageContent = document.createElement('div');
+                messageContent.style.cssText = `
+                    color: #ffffff;
+                    white-space: pre-wrap;
+                    font-family: 'Courier New', monospace;
+                    font-size: 0.85rem;
+                    line-height: 1.4;
+                `;
+                try {
+                    messageContent.textContent = messageData.content || 'No content available';
+                } catch (error) {
+                    console.error('Error displaying historical tool call content:', error);
+                    messageContent.textContent = 'Error displaying plan content';
+                }
+
+                messageDiv.appendChild(messageTitle);
+                messageDiv.appendChild(messageContent);
+                historicalSection.appendChild(messageDiv);
+            });
+
+            content.appendChild(historicalSection);
+        }
+
+        // If no content available
+        if (!this.currentToolCalls && this.toolCallMessages.length === 0) {
+            const noContent = document.createElement('div');
+            noContent.style.cssText = `
+                text-align: center;
+                color: #9ca3af;
+                padding: 2rem;
+            `;
+            noContent.textContent = 'No tool plans available';
+            content.appendChild(noContent);
+        }
+
+        modalContent.appendChild(header);
+        modalContent.appendChild(content);
+        modal.appendChild(modalContent);
+
+        // Close functionality
+        closeBtn.onclick = () => modal.remove();
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        };
+
+        document.body.appendChild(modal);
+    }
+
+    /**
+     * Set current tool calls from SSE response
+     */
+    setCurrentToolCalls(toolCalls) {
+        try {
+            console.log('Setting current tool calls:', toolCalls);
+            this.currentToolCalls = toolCalls;
+            this.updateShowPlanButton();
+        } catch (error) {
+            console.error('Error setting tool calls:', error);
+            this.currentToolCalls = null;
+        }
+    }
+
+    /**
+     * Clear current tool calls
+     */
+    clearCurrentToolCalls() {
+        this.currentToolCalls = null;
+        this.updateShowPlanButton();
+    }
+
+    /**
+     * Test method to manually show the plan button (for debugging)
+     */
+    testShowPlanButton() {
+        console.log('Testing show plan button...');
+        this.currentToolCalls = { test: 'This is a test tool call' };
+        this.updateShowPlanButton();
+    }
+
+    showProgressIndicator() {
+        // Don't show if already showing
+        if (this.isShowingProgress) {
+            return;
+        }
+        
+        const progressDiv = document.createElement('div');
+        progressDiv.className = 'message assistant progress-indicator';
+        progressDiv.id = 'progressIndicator';
+        
+        progressDiv.innerHTML = `
             <div class="message-avatar">
                 <i class="fas fa-robot"></i>
             </div>
             <div class="message-content">
                 <div class="message-text">
-                    <div class="typing-indicator">
-                        <span>AI is typing</span>
-                        <div class="typing-dots">
-                            <div class="typing-dot"></div>
-                            <div class="typing-dot"></div>
-                            <div class="typing-dot"></div>
+                    <div class="simple-progress-status">
+                        <div class="progress-icon">
+                            <i class="fas fa-cog"></i>
                         </div>
+                        <span id="progressStatusText">Getting your data...</span>
                     </div>
                 </div>
             </div>
         `;
         
-        this.chatMessages.appendChild(typingDiv);
+        this.chatMessages.appendChild(progressDiv);
         this.scrollToBottom();
+        this.isShowingProgress = true;
     }
 
+    hideProgressIndicator() {
+        // Stop progress simulation
+        this.stopProgressSimulation();
+        
+        const progressIndicator = document.getElementById('progressIndicator');
+        if (progressIndicator) {
+            progressIndicator.remove();
+        }
+        this.isShowingProgress = false;
+    }
+
+    updateProgressIndicator(progress, status) {
+        const progressStatusText = document.getElementById('progressStatusText');
+        
+        if (progressStatusText && status) {
+            progressStatusText.textContent = status;
+        }
+    }
+
+    // Legacy method for compatibility
     hideTypingIndicator() {
-        const typingIndicator = document.getElementById('typingIndicator');
-        if (typingIndicator) {
-            typingIndicator.remove();
+        this.hideProgressIndicator();
+    }
+
+    startProgressSimulation() {
+        // Clear any existing simulation
+        this.stopProgressSimulation();
+        
+        // Show initial status
+        this.updateProgressIndicator(null, 'Getting your data...');
+        
+        // Only start fallback simulation if no real updates come for a while
+        this.progressSimulationTimeout = setTimeout(() => {
+            if (this.isShowingProgress) {
+                // Show a generic status if no real updates come
+                this.updateProgressIndicator(null, 'Processing your request...');
+            }
+        }, 5000); // Wait 5 seconds before showing fallback
+    }
+
+    stopProgressSimulation() {
+        if (this.progressSimulationInterval) {
+            clearInterval(this.progressSimulationInterval);
+            this.progressSimulationInterval = null;
+        }
+        if (this.progressSimulationTimeout) {
+            clearTimeout(this.progressSimulationTimeout);
+            this.progressSimulationTimeout = null;
         }
     }
 
@@ -386,7 +796,7 @@ class ChatArea {
         if (messageElement) {
             const textElement = messageElement.querySelector('.message-text');
             if (textElement && !message.isEditing) {
-                textElement.textContent = message.content;
+                textElement.innerHTML = message.formatContent(message.content);
             }
         }
     }

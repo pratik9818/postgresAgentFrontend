@@ -273,28 +273,9 @@ body {
     flex-direction: row-reverse;
 }
 
-.message-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-}
-
-.message.user .message-avatar {
-    background-color: #10a37f;
-}
-
-.message.assistant .message-avatar {
-    background-color: #4d4d4d;
-}
-
 .message-content {
     flex: 1;
-    max-width: calc(100% - 48px);
+    max-width: 100%;
 }
 
 .message.user .message-content {
@@ -311,13 +292,124 @@ body {
     position: relative;
 }
 
+/* Text formatting styles for AI responses */
+.message-text p {
+    margin: 0.5rem 0;
+    line-height: 1.6;
+}
+
+.message-text p:first-child {
+    margin-top: 0;
+}
+
+.message-text p:last-child {
+    margin-bottom: 0;
+}
+
+.message-text ul, .message-text ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.message-text li {
+    margin: 0.25rem 0;
+    line-height: 1.5;
+}
+
+.message-text ul {
+    list-style-type: disc;
+}
+
+.message-text ol {
+    list-style-type: decimal;
+}
+
+.message-text ul ul, .message-text ol ol, .message-text ul ol, .message-text ol ul {
+    margin: 0.25rem 0;
+}
+
+.message-text strong, .message-text b {
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.message-text em, .message-text i {
+    font-style: italic;
+}
+
+.message-text code {
+    background-color: #1a1a1a;
+    color: #f8f8f2;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.message-text pre {
+    background-color: #1a1a1a;
+    color: #f8f8f2;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 0.5rem 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.message-text pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+}
+
+.message-text blockquote {
+    border-left: 4px solid #10a37f;
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+    color: #d1d5db;
+    font-style: italic;
+}
+
+.message-text h1, .message-text h2, .message-text h3, .message-text h4, .message-text h5, .message-text h6 {
+    margin: 1rem 0 0.5rem 0;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.message-text h1 { font-size: 1.5rem; }
+.message-text h2 { font-size: 1.3rem; }
+.message-text h3 { font-size: 1.2rem; }
+.message-text h4 { font-size: 1.1rem; }
+.message-text h5 { font-size: 1rem; }
+.message-text h6 { font-size: 0.9rem; }
+
+.message-text hr {
+    border: none;
+    border-top: 1px solid #4d4d4d;
+    margin: 1rem 0;
+}
+
+.message-text a {
+    color: #10a37f;
+    text-decoration: underline;
+}
+
+.message-text a:hover {
+    color: #0d8a6b;
+}
+
 .message.user .message-text {
-    background-color: #10a37f;
+    background-color: #2d2d2d;
     border-bottom-right-radius: 4px;
+    max-width: 50%;
+    margin-left: auto;
 }
 
 .message.assistant .message-text {
     border-bottom-left-radius: 4px;
+    background-color: transparent;
 }
 
 .message-actions {
@@ -572,7 +664,7 @@ body {
     }
 
     .message-content {
-        max-width: calc(100% - 40px);
+        max-width: 100%;
     }
 }
 
@@ -625,7 +717,48 @@ body {
     cursor: not-allowed;
 }
 
-/* Typing indicator */
+/* Progress indicator */
+.progress-indicator {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.simple-progress-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #ffffff;
+    font-style: italic;
+}
+
+.progress-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress-icon i {
+    font-size: 0.8rem;
+    color: #10a37f;
+    animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Legacy typing indicator (kept for compatibility) */
 .typing-indicator {
     display: flex;
     align-items: center;
@@ -724,6 +857,53 @@ body {
     color: #ffffff !important;
 }
 
+/* Show plan button styles */
+.show-plan-btn {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    background: #10a37f;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.show-plan-btn:hover {
+    background-color: #0d8a6b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.show-plan-btn i {
+    font-size: 0.8rem;
+}
+
+/* Plan modal styles */
+.plan-modal .modal-close:hover {
+    background-color: #4d4d4d;
+    color: #ffffff;
+}
+
+.plan-modal-content {
+    background-color: #2d2d2d;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    border: 1px solid #4d4d4d;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Raw data modal styles */
 .raw-data-modal .modal-close:hover {
     background-color: #4d4d4d;
@@ -763,5 +943,18 @@ body {
     .raw-data-modal table td {
         padding: 0.5rem !important;
         max-width: 150px !important;
+    }
+    
+    /* Show plan button responsive */
+    .show-plan-btn {
+        top: 5px;
+        right: 10px;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    .plan-modal-content {
+        width: 95% !important;
+        max-height: 90vh !important;
     }
 }

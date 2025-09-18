@@ -15,7 +15,6 @@ class ApiService {
             
             if (userData) {
                 const user = JSON.parse(userData);
-            console.log(user);
 
                 return user.token.accessToken || null;
             }

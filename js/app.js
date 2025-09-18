@@ -259,6 +259,15 @@ class App {
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
+    
+    // Make test function available globally for debugging
+    window.testShowPlanButton = () => {
+        if (window.app && window.app.chatArea) {
+            window.app.chatArea.testShowPlanButton();
+        } else {
+            console.error('App or chatArea not initialized yet');
+        }
+    };
 });
 
 // Export for potential module usage
