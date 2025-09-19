@@ -5,7 +5,8 @@ class ChatManager {
     constructor() {
         this.chats = new Map();
         this.currentChatId = null;
-        this.storageKey = API_CONFIG.STORAGE_KEYS.CHATS;
+        // Chat data is no longer stored in localStorage
+        // this.storageKey = API_CONFIG.STORAGE_KEYS.CHATS;
         this.apiService = new ApiService();
         this.aiChatService = new AiChatService();
         this.pagination = {
@@ -24,6 +25,11 @@ class ChatManager {
             // Create conversation on server
             const response = await this.apiService.createConversation();
             
+            // Check for token expiration
+            if (response.isTokenExpired) {
+                console.log('Token expired during conversation creation');
+                return null; // Will be handled by ApiService
+            }
             
             if (response.success) {
                 // Handle different possible response structures
@@ -59,7 +65,6 @@ class ChatManager {
                 };
                 
                 this.chats.set(chat.id, chat);
-                this.saveChats();
                 
                 
                 // Trigger event
@@ -86,7 +91,6 @@ class ChatManager {
             };
             
             this.chats.set(chatId, chat);
-            this.saveChats();
             
             // Trigger event
             window.dispatchEvent(new CustomEvent('chatCreated', {
@@ -132,6 +136,11 @@ class ChatManager {
             const skipValue = loadMore ? this.pagination.skipValue : 0;
             const response = await this.apiService.getConversations(skipValue);
             
+            // Check for token expiration
+            if (response.isTokenExpired) {
+                console.log('Token expired during conversation fetch');
+                return { success: false, error: 'Session expired' };
+            }
             
             if (response.success && response.data) {
                 // Handle nested data structure: response.data.data contains the actual chats
@@ -178,8 +187,6 @@ class ChatManager {
                 this.pagination.hasMore = serverChats.length === API_CONFIG.DEFAULTS.CHATS_PER_PAGE;
                 
                 
-                this.saveChats();
-                
                 // Trigger event
                 window.dispatchEvent(new CustomEvent('chatsLoaded', {
                     detail: { 
@@ -220,11 +227,16 @@ class ChatManager {
                 // Call API to update conversation name
                 const response = await this.apiService.updateConversationName(chatId, newName);
                 
+                // Check for token expiration
+                if (response.isTokenExpired) {
+                    console.log('Token expired during conversation name update');
+                    return false; // Will be handled by ApiService
+                }
+                
                 if (response.success) {
                     // Update local chat data
                     chat.name = newName;
                     chat.updatedAt = new Date().toISOString();
-                    this.saveChats();
                     
                     // Trigger event
                     window.dispatchEvent(new CustomEvent('chatUpdated', {
@@ -253,7 +265,6 @@ class ChatManager {
     deleteChat(chatId) {
         if (this.chats.has(chatId)) {
             this.chats.delete(chatId);
-            this.saveChats();
             
             // If this was the current chat, clear it and update URL
             if (this.currentChatId === chatId) {
@@ -287,7 +298,6 @@ class ChatManager {
                 this.autoRenameChat(chatId, content);
             }
             
-            this.saveChats();
             
             // Save message to server if chat has serverId
             if (chat.serverId && !chat.isLocal) {
@@ -343,7 +353,6 @@ class ChatManager {
                 message.content = newContent;
                 message.timestamp = new Date().toISOString();
                 chat.updatedAt = new Date().toISOString();
-                this.saveChats();
                 
                 // Trigger event
                 window.dispatchEvent(new CustomEvent('messageUpdated', {
@@ -367,7 +376,6 @@ class ChatManager {
                 const message = chat.messages[messageIndex];
                 chat.messages.splice(messageIndex, 1);
                 chat.updatedAt = new Date().toISOString();
-                this.saveChats();
                 
                 // Trigger event
                 window.dispatchEvent(new CustomEvent('messageDeleted', {
@@ -736,6 +744,12 @@ class ChatManager {
             
             const response = await this.apiService.getConversation(chatId);
             
+            // Check for token expiration
+            if (response.isTokenExpired) {
+                console.log('Token expired during chat fetch from server');
+                return; // Will be handled by ApiService
+            }
+            
             if (response.success && response.data) {
                 const serverChat = response.data;
                 
@@ -749,7 +763,6 @@ class ChatManager {
                     existingChat.isPlaceholder = false; // No longer a placeholder
                     
                     // Save updated chat
-                    this.saveChats();
                     
                     // Trigger event to update UI
                     window.dispatchEvent(new CustomEvent('chatUpdated', {
@@ -767,55 +780,22 @@ class ChatManager {
     }
 
     /**
-     * Save chats to localStorage
+     * Save chats to localStorage - DISABLED: Only store user data and tokens
      */
     saveChats() {
-        try {
-            const chatsArray = Array.from(this.chats.entries()).map(([id, chat]) => ({
-                id: chat.id,
-                name: chat.name,
-                messages: chat.messages.map(msg => msg.toJSON()),
-                createdAt: chat.createdAt,
-                updatedAt: chat.updatedAt,
-                serverId: chat.serverId, // Save serverId to localStorage
-                isLocal: chat.isLocal, // Save local flag
-                isPlaceholder: chat.isPlaceholder // Save placeholder flag
-            }));
-            
-            localStorage.setItem(this.storageKey, JSON.stringify(chatsArray));
-        } catch (error) {
-            console.error('Error saving chats:', error);
-        }
+        // Chat data is no longer stored in localStorage
+        // Only user data and tokens should be persisted
+        console.log('Chat data storage disabled - only user data and tokens are persisted');
     }
 
     /**
-     * Load chats from localStorage
+     * Load chats from localStorage - DISABLED: Only user data and tokens are loaded
      */
     loadChats() {
-        try {
-            const saved = localStorage.getItem(this.storageKey);
-            if (saved) {
-                const chatsArray = JSON.parse(saved);
-                this.chats.clear();
-                
-                chatsArray.forEach(chatData => {
-                    const chat = {
-                        id: chatData.id,
-                        name: chatData.name,
-                        messages: chatData.messages.map(msgData => Message.fromJSON(msgData)),
-                        createdAt: chatData.createdAt,
-                        updatedAt: chatData.updatedAt,
-                        serverId: chatData.serverId, // Load serverId from localStorage
-                        isLocal: chatData.isLocal, // Load local flag
-                        isPlaceholder: chatData.isPlaceholder // Load placeholder flag
-                    };
-                    this.chats.set(chat.id, chat);
-                });
-            }
-        } catch (error) {
-            console.error('Error loading chats:', error);
-            this.chats.clear();
-        }
+        // Chat data is no longer loaded from localStorage
+        // Chats will be fetched from the server instead
+        console.log('Chat data loading disabled - chats will be fetched from server');
+        this.chats.clear();
     }
 
     /**
@@ -843,6 +823,12 @@ class ChatManager {
             const response = await this.apiService.getChats(conversationId, skipValue);
             
             console.log('API response:', response);
+            
+            // Check for token expiration
+            if (response.isTokenExpired) {
+                console.log('Token expired during chat messages fetch');
+                return { success: false, error: 'Session expired' };
+            }
             
             if (response.success && response.data) {
                 // Handle nested data structure
@@ -1109,7 +1095,6 @@ class ChatManager {
     clearAllChats() {
         this.chats.clear();
         this.currentChatId = null;
-        this.saveChats();
         
         // Trigger event
         window.dispatchEvent(new CustomEvent('allChatsCleared'));
@@ -1149,7 +1134,6 @@ class ChatManager {
                 this.chats.set(chat.id, chat);
             });
             
-            this.saveChats();
             
             // Trigger event
             window.dispatchEvent(new CustomEvent('chatsImported', {
@@ -1182,7 +1166,6 @@ class ChatManager {
                     // Update local chat data
                     chat.name = newName;
                     chat.updatedAt = new Date().toISOString();
-                    this.saveChats();
                     
                     // Trigger event to update UI
                     window.dispatchEvent(new CustomEvent('chatUpdated', {
@@ -1194,13 +1177,11 @@ class ChatManager {
                     console.error('Failed to auto-rename chat:', response.error);
                     // Fallback to local update only
                     chat.name = newName;
-                    this.saveChats();
                 }
             } catch (error) {
                 console.error('Error auto-renaming chat:', error);
                 // Fallback to local update only
                 chat.name = newName;
-                this.saveChats();
             }
         }
     }

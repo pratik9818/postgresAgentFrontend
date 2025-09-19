@@ -19,8 +19,8 @@ const API_CONFIG = {
     
     // Storage Keys
     STORAGE_KEYS: {
-        USER_DATA: 'data',
-        CHATS: 'chatgpt_clone_chats'
+        USER_DATA: 'data'
+        // CHATS key removed - chat data is no longer stored in localStorage
     },
     
     // Default Values

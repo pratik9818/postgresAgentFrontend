@@ -14,7 +14,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 - Create new chats with custom names
 - Edit chat names inline
 - Delete entire conversations
-- Persistent storage using localStorage
+- Server-side chat storage (no localStorage for chat data)
 - Chat history with message previews
 
 ### ✏️ **Message Features**
@@ -30,7 +30,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 - Event-driven communication
 - Keyboard shortcuts (Ctrl+N for new chat, Ctrl+K to focus input)
 - Mobile-responsive sidebar
-- Offline support with localStorage
+- User data and token persistence with localStorage
 
 ## File Structure
 
@@ -59,7 +59,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 
 ### `ChatManager`
 - Manages all chat operations (CRUD)
-- Handles localStorage persistence
+- Server-side chat storage (no localStorage for chat data)
 - Coordinates between components
 
 ### `Sidebar`
@@ -105,7 +105,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 ## Browser Support
 
 - Modern browsers with ES6+ support
-- localStorage support required
+- localStorage support required (for user data and tokens only)
 - CSS Grid and Flexbox support
 
 ## Future Enhancements

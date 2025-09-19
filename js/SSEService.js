@@ -101,6 +101,14 @@ class SSEService {
             eventSource.addEventListener('error', (event) => {
                 console.error('Job error:', jobId, event.data);
                 const data = JSON.parse(event.data);
+                
+                // Check if this is a token expiration error
+                if (this.isTokenExpiredInEventData(data)) {
+                    console.log('Token expiration detected in SSE error event');
+                    this.handleTokenExpiration();
+                    return;
+                }
+                
                 if (handlers.onError) {
                     handlers.onError(data);
                 }
@@ -115,6 +123,13 @@ class SSEService {
                 // Check if it's an authentication error
                 if (eventSource.readyState === EventSource.CLOSED) {
                     console.error('SSE connection closed - possible authentication failure');
+                    
+                    // Check if this might be a token expiration issue
+                    if (this.isTokenExpiredError()) {
+                        console.log('Token expiration detected in SSE connection');
+                        this.handleTokenExpiration();
+                        return;
+                    }
                 }
                 
                 if (handlers.onError) {
@@ -217,6 +232,102 @@ class SSEService {
             case EventSource.CLOSED: return 'Closed';
             default: return 'Unknown';
         }
+    }
+
+    /**
+     * Check if token expiration error occurred
+     */
+    isTokenExpiredError() {
+        // Check if user is no longer authenticated
+        return !this.isAuthenticated();
+    }
+
+    /**
+     * Check if SSE event data indicates token expiration
+     */
+    isTokenExpiredInEventData(data) {
+        if (!data || typeof data !== 'object') {
+            return false;
+        }
+        
+        const error = data.error || data.message || '';
+        const errorLower = error.toLowerCase();
+        
+        return errorLower.includes('token') && 
+               (errorLower.includes('expired') || errorLower.includes('invalid')) ||
+               errorLower.includes('unauthorized') ||
+               errorLower.includes('401');
+    }
+
+    /**
+     * Handle token expiration
+     */
+    handleTokenExpiration() {
+        console.log('Handling token expiration in SSE service');
+        
+        // Disconnect all SSE connections
+        this.disconnectAll();
+        
+        // Clear user data
+        localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+        
+        // Show notification to user
+        this.showTokenExpiredNotification();
+        
+        // Redirect to login after a short delay
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 2000);
+    }
+
+    /**
+     * Show token expired notification
+     */
+    showTokenExpiredNotification() {
+        const notification = document.createElement('div');
+        notification.className = 'token-expired-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #f59e0b;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            max-width: 400px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        `;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <div style="font-weight: bold; margin-bottom: 0.25rem;">Session Expired</div>
+                    <div style="font-size: 0.9rem;">Your session has expired. Redirecting to login...</div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Animate in
+        setTimeout(() => {
+            notification.style.transform = 'translateX(0)';
+        }, 100);
+
+        // Auto remove after delay
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 5000);
     }
 
     /**

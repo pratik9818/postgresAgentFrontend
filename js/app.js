@@ -268,6 +268,26 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('App or chatArea not initialized yet');
         }
     };
+
+    // Test token expiration handling
+    window.testTokenExpiration = () => {
+        console.log('Testing token expiration handling...');
+        
+        // Simulate an expired token by clearing user data
+        const originalUserData = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+        localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+        
+        console.log('Cleared user data to simulate token expiration');
+        console.log('Now try to send a message or perform any API action to see token expiration handling');
+        
+        // Restore user data after 10 seconds for testing
+        setTimeout(() => {
+            if (originalUserData) {
+                localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, originalUserData);
+                console.log('Restored user data for continued testing');
+            }
+        }, 10000);
+    };
 });
 
 // Export for potential module usage
