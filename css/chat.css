@@ -225,6 +225,25 @@ body {
     flex: 1;
 }
 
+.db-credentials-btn {
+    background-color: #10a37f;
+    border: none;
+    color: #ffffff;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    margin-left: auto;
+}
+
+.db-credentials-btn:hover {
+    background-color: #0d8a6b;
+}
+
 /* Chat messages */
 .chat-messages {
     flex: 1;
@@ -650,6 +669,15 @@ body {
     .chat-header {
         padding: 1rem;
     }
+    
+    .db-credentials-btn {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .db-credentials-btn span {
+        display: none;
+    }
 
     .chat-input-container {
         padding: 1rem;
@@ -857,52 +885,6 @@ body {
     color: #ffffff !important;
 }
 
-/* Show plan button styles */
-.show-plan-btn {
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    background: #10a37f;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s ease;
-    z-index: 100;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.show-plan-btn:hover {
-    background-color: #0d8a6b;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.show-plan-btn i {
-    font-size: 0.8rem;
-}
-
-/* Plan modal styles */
-.plan-modal .modal-close:hover {
-    background-color: #4d4d4d;
-    color: #ffffff;
-}
-
-.plan-modal-content {
-    background-color: #2d2d2d;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 800px;
-    max-height: 80vh;
-    border: 1px solid #4d4d4d;
-    display: flex;
-    flex-direction: column;
-}
 
 /* Raw data modal styles */
 .raw-data-modal .modal-close:hover {
@@ -945,16 +927,4 @@ body {
         max-width: 150px !important;
     }
     
-    /* Show plan button responsive */
-    .show-plan-btn {
-        top: 5px;
-        right: 10px;
-        padding: 0.4rem 0.8rem;
-        font-size: 0.8rem;
-    }
-    
-    .plan-modal-content {
-        width: 95% !important;
-        max-height: 90vh !important;
-    }
 }

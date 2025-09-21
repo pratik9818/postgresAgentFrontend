@@ -1,11 +1,11 @@
-# ChatGPT Clone - Chat Application
+# sql agent Clone - Chat Application
 
-A modern, dark-mode chat application inspired by ChatGPT's interface, built with vanilla JavaScript and following OOP principles.
+A modern, dark-mode chat application inspired by sql agent's interface, built with vanilla JavaScript and following OOP principles.
 
 ## Features
 
 ### 🎨 **Modern UI/UX**
-- Dark mode design matching ChatGPT's aesthetic
+- Dark mode design matching sql agent's aesthetic
 - Responsive layout that works on desktop and mobile
 - Smooth animations and transitions
 - Clean, minimalist interface
@@ -14,7 +14,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 - Create new chats with custom names
 - Edit chat names inline
 - Delete entire conversations
-- Server-side chat storage (no localStorage for chat data)
+- Persistent storage using localStorage
 - Chat history with message previews
 
 ### ✏️ **Message Features**
@@ -30,7 +30,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 - Event-driven communication
 - Keyboard shortcuts (Ctrl+N for new chat, Ctrl+K to focus input)
 - Mobile-responsive sidebar
-- User data and token persistence with localStorage
+- Offline support with localStorage
 
 ## File Structure
 
@@ -59,7 +59,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 
 ### `ChatManager`
 - Manages all chat operations (CRUD)
-- Server-side chat storage (no localStorage for chat data)
+- Handles localStorage persistence
 - Coordinates between components
 
 ### `Sidebar`
@@ -105,7 +105,7 @@ A modern, dark-mode chat application inspired by ChatGPT's interface, built with
 ## Browser Support
 
 - Modern browsers with ES6+ support
-- localStorage support required (for user data and tokens only)
+- localStorage support required
 - CSS Grid and Flexbox support
 
 ## Future Enhancements

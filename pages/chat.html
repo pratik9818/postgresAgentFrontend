@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>postgres agent</title>
+    <title>AskYourDB</title>
     <link rel="stylesheet" href="../css/chat.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -44,7 +44,11 @@
                 <button class="mobile-menu-btn" id="mobileMenuBtn">
                     <i class="fas fa-bars"></i>
                 </button>
-                <h1 class="chat-title" id="chatTitle">New Chat</h1>
+                <h1 class="chat-title" id="chatTitle"></h1>
+                <button class="db-credentials-btn" id="dbCredentialsBtn">
+                    <i class="fas fa-database"></i>
+                    <span>Add DB Credentials</span>
+                </button>
             </div>
 
             <div class="chat-messages" id="chatMessages">
@@ -52,8 +56,8 @@
                     <div class="welcome-icon">
                         <i class="fas fa-robot"></i>
                     </div>
-                    <h2>How can I help you today?</h2>
-                    <p>Start a new conversation by typing a message below.</p>
+                    <h2>Ask me anything about your data</h2>
+                    <p>Get instant insights from your database without writing SQL. Just ask in plain English!</p>
                 </div>
             </div>
 
@@ -62,16 +66,13 @@
                     <textarea 
                         class="chat-input" 
                         id="chatInput" 
-                        placeholder="Message ChatGPT..."
+                        placeholder="Ask anything about your data"
                         rows="1"
                     ></textarea>
                     <button class="send-btn" id="sendBtn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
-                <!-- <div class="input-footer">
-                    <p>ChatGPT can make mistakes. Consider checking important information.</p>
-                </div> -->
             </div>
         </div>
     </div>

@@ -85,6 +85,12 @@ class App {
         window.addEventListener('popstate', (e) => {
             this.handlePopState(e);
         });
+
+        // Handle chat events for page title updates
+        this.setupChatTitleEvents();
+        
+        // Handle database credentials button
+        this.setupDbCredentialsButton();
     }
 
     handleKeyboardShortcuts(e) {
@@ -149,6 +155,51 @@ class App {
         }
     }
 
+    setupChatTitleEvents() {
+        // Listen for current chat changes
+        window.addEventListener('currentChatChanged', (e) => {
+            this.updatePageTitle();
+        });
+
+        // Listen for chat updates (like name changes)
+        window.addEventListener('chatUpdated', (e) => {
+            // Only update title if this is the current chat
+            if (e.detail.chat.id === this.chatManager.currentChatId) {
+                this.updatePageTitle();
+            }
+        });
+
+        // Listen for new chat creation
+        window.addEventListener('chatCreated', (e) => {
+            // If this is the current chat, update the title
+            if (e.detail.chat.id === this.chatManager.currentChatId) {
+                this.updatePageTitle();
+            }
+        });
+    }
+
+    setupDbCredentialsButton() {
+        const dbCredentialsBtn = document.getElementById('dbCredentialsBtn');
+        if (dbCredentialsBtn) {
+            dbCredentialsBtn.addEventListener('click', () => {
+                // Redirect to database credentials page
+                window.location.href = '../pages/db.html';
+            });
+        }
+    }
+
+    updatePageTitle() {
+        const currentChat = this.chatManager.getCurrentChat();
+        
+        if (currentChat && currentChat.name) {
+            // Update page title with chat name
+            document.title = `${currentChat.name} - AskYourDB`;
+        } else {
+            // Default title when no chat is selected
+            document.title = 'AskYourDB';
+        }
+    }
+
     loadInitialState() {
         // First try to load chat from URL
         const urlChatLoaded = this.chatManager.loadChatFromURL();
@@ -158,6 +209,9 @@ class App {
             // Don't automatically load the most recent chat to avoid URL updates
             this.chatArea.showWelcomeMessage();
         }
+        
+        // Update page title based on current state
+        this.updatePageTitle();
         
         // The Sidebar will handle loading initial chats from server
     }
@@ -260,14 +314,6 @@ class App {
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
     
-    // Make test function available globally for debugging
-    window.testShowPlanButton = () => {
-        if (window.app && window.app.chatArea) {
-            window.app.chatArea.testShowPlanButton();
-        } else {
-            console.error('App or chatArea not initialized yet');
-        }
-    };
 
     // Test token expiration handling
     window.testTokenExpiration = () => {

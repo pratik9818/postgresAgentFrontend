@@ -1,5 +1,5 @@
 /**
- * Constants and configuration for the ChatGPT Clone application
+ * Constants and configuration for the sql agent Clone application
  */
 const API_CONFIG = {
     // Base API URL
@@ -19,8 +19,8 @@ const API_CONFIG = {
     
     // Storage Keys
     STORAGE_KEYS: {
-        USER_DATA: 'data'
-        // CHATS key removed - chat data is no longer stored in localStorage
+        USER_DATA: 'data',
+        CHATS: 'sql_agent'
     },
     
     // Default Values

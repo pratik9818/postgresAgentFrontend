@@ -68,7 +68,18 @@ class ApiService {
                     };
                 }
                 
-                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+                // Provide more specific error messages based on status code
+                let errorMessage = data.message || data.error || `HTTP error! status: ${response.status}`;
+                
+                if (response.status === 404) {
+                    errorMessage = 'Resource not found on server';
+                } else if (response.status === 500) {
+                    errorMessage = 'Internal server error';
+                } else if (response.status === 403) {
+                    errorMessage = 'Access forbidden';
+                }
+                
+                throw new Error(errorMessage);
             }
 
             return {
@@ -91,10 +102,20 @@ class ApiService {
                 };
             }
             
+            // Try to extract status code from error if available
+            let statusCode = 0;
+            if (error.status) {
+                statusCode = error.status;
+            } else if (error.message && error.message.includes('404')) {
+                statusCode = 404;
+            } else if (error.message && error.message.includes('500')) {
+                statusCode = 500;
+            }
+            
             return {
                 success: false,
                 error: error.message,
-                status: error.status || 0
+                status: statusCode
             };
         }
     }
@@ -121,8 +142,8 @@ class ApiService {
     /**
      * Get a specific conversation
      */
-    async getConversation(conversationId) {
-        return await this.makeRequest(`${API_CONFIG.ENDPOINTS.CONVERSATION}/${conversationId}`, {
+    async getConversation(conversationId,skipValue) {
+        return await this.makeRequest(`/api/chats?conversationId=${conversationId}&skipValue=${skipValue}`, {
             method: 'GET'
         });
     }
@@ -144,8 +165,11 @@ class ApiService {
      * Delete a conversation
      */
     async deleteConversation(conversationId) {
-        return await this.makeRequest(`${API_CONFIG.ENDPOINTS.CONVERSATION}/${conversationId}`, {
-            method: 'DELETE'
+        return await this.makeRequest(API_CONFIG.ENDPOINTS.CONVERSATION, {
+            method: 'DELETE',
+            body: JSON.stringify({ 
+                conversationId: conversationId
+            })
         });
     }
 
@@ -192,9 +216,12 @@ class ApiService {
         
         // Check response data for token expiration indicators
         if (data && typeof data === 'object') {
-            const message = (data.message || data.error || '').toLowerCase();
-            return message.includes('token') && 
-                   (message.includes('expired') || message.includes('invalid') || message.includes('expire'));
+            const message = (data.message || data.error || '');
+            // Ensure message is a string before calling toLowerCase
+            const messageStr = typeof message === 'string' ? message : String(message);
+            const lowerMessage = messageStr.toLowerCase();
+            return lowerMessage.includes('token') && 
+                   (lowerMessage.includes('expired') || lowerMessage.includes('invalid') || lowerMessage.includes('expire'));
         }
         
         return false;
@@ -206,11 +233,14 @@ class ApiService {
     isTokenExpiredError(error) {
         if (!error) return false;
         
-        const message = error.message.toLowerCase();
-        return message.includes('unauthorized') || 
-               message.includes('401') || 
-               message.includes('token') && 
-               (message.includes('expired') || message.includes('invalid'));
+        const message = error.message || '';
+        // Ensure message is a string before calling toLowerCase
+        const messageStr = typeof message === 'string' ? message : String(message);
+        const lowerMessage = messageStr.toLowerCase();
+        return lowerMessage.includes('unauthorized') || 
+               lowerMessage.includes('401') || 
+               lowerMessage.includes('token') && 
+               (lowerMessage.includes('expired') || lowerMessage.includes('invalid'));
     }
 
     /**

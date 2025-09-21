@@ -11,6 +11,7 @@ class Sidebar {
         this.mobileMenuBtn = document.getElementById('mobileMenuBtn');
         this.userName = document.getElementById('userName');
         this.logoutBtn = document.getElementById('logoutBtn');
+        this.eventsSetup = false; // Flag to prevent duplicate event listener setup
         
         this.init();
     }
@@ -62,6 +63,14 @@ class Sidebar {
     }
 
     setupChatEvents() {
+        // Prevent duplicate event listener setup
+        if (this.eventsSetup) {
+            console.log('Sidebar events already setup, skipping duplicate setup');
+            return;
+        }
+        
+        this.eventsSetup = true;
+        
         // Listen for chat manager events
         window.addEventListener('chatCreated', (e) => {
             this.renderChatList();
@@ -320,9 +329,37 @@ class Sidebar {
         });
     }
 
-    deleteChat(chatId, chatName) {
+    async deleteChat(chatId, chatName) {
         if (confirm(`Are you sure you want to delete "${chatName}"? This action cannot be undone.`)) {
-            this.chatManager.deleteChat(chatId);
+            // Find the chat item element to show loading state
+            const chatItem = document.querySelector(`[data-chat-id="${chatId}"]`);
+            const deleteBtn = chatItem?.querySelector('[data-action="delete"]');
+            
+            // Show loading state on delete button
+            if (deleteBtn) {
+                const originalContent = deleteBtn.innerHTML;
+                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                deleteBtn.disabled = true;
+                
+                try {
+                    const success = await this.chatManager.deleteChat(chatId);
+                    
+                    if (!success) {
+                        // Reset button state on failure
+                        deleteBtn.innerHTML = originalContent;
+                        deleteBtn.disabled = false;
+                    }
+                    // If successful, the chat item will be removed from DOM by the chatDeleted event
+                } catch (error) {
+                    console.error('Error deleting chat:', error);
+                    // Reset button state on error
+                    deleteBtn.innerHTML = originalContent;
+                    deleteBtn.disabled = false;
+                }
+            } else {
+                // Fallback if chat item not found
+                await this.chatManager.deleteChat(chatId);
+            }
         }
     }
 
