@@ -3,7 +3,8 @@
  */
 const API_CONFIG = {
     // Base API URL
-    BASE_URL: 'http://localhost:3000',
+    // BASE_URL: 'http://localhost:3000',
+     BASE_URL: 'https://128.199.22.214:3000',
     
     // API Endpoints
     ENDPOINTS: {
